@@ -56,10 +56,6 @@ def listar_edicoes_bracis(
         titulo_edicao = tag_titulo.get_text(" ", strip=True)
         ano_edicao = extrair_ano(titulo_edicao)
 
-        if ano_edicao is None:
-            tag_data = bloco.select_one("div.date_published span.value")
-            ano_edicao = extrair_ano(tag_data.get_text(" ", strip=True) if tag_data else "")
-
         if ano_edicao not in anos_alvo:
             continue
 
@@ -103,12 +99,6 @@ def extrair_titulo_resumo(
     tag_titulo = soup.select_one("h1.page_title")
     titulo = tag_titulo.get_text(" ", strip=True) if tag_titulo else titulo_fallback
 
-    if not titulo:
-        tag_meta_titulo = soup.select_one('meta[name="citation_title"]')
-        titulo = tag_meta_titulo.get("content", "").strip() if tag_meta_titulo else ""
-    if not titulo:
-        titulo = titulo_fallback
-
     resumo = ""
     tag_resumo = soup.select_one("div.item.abstract")
     if tag_resumo:
@@ -116,18 +106,6 @@ def extrair_titulo_resumo(
         if tag_label:
             tag_label.decompose()
         resumo = tag_resumo.get_text(" ", strip=True)
-
-    if not resumo:
-        tag_meta_resumo = soup.select_one('meta[name="citation_abstract"]')
-        if tag_meta_resumo:
-            resumo = tag_meta_resumo.get("content", "").strip()
-
-    if not resumo:
-        for meta_desc in soup.select('meta[name="DC.Description"]'):
-            texto = meta_desc.get("content", "").strip()
-            if texto:
-                resumo = texto
-                break
 
     return titulo, resumo
 
@@ -148,7 +126,8 @@ def coletar_trabalhos_bracis(
         artigos = listar_artigos_edicao(edicao.link, session)
         print(f"  Artigos na edicao: {len(artigos)}")
 
-        for artigo in artigos:
+        total_artigos = len(artigos)
+        for indice, artigo in enumerate(artigos, start=1):
             time.sleep(sleep_seconds)
             try:
                 titulo, resumo = extrair_titulo_resumo(
@@ -169,6 +148,9 @@ def coletar_trabalhos_bracis(
                     "Link": artigo["link_artigo"],
                 }
             )
+
+            if indice % 25 == 0 or indice == total_artigos:
+                print(f"  Progresso: {indice}/{total_artigos}")
 
     df = pd.DataFrame(
         registros,
